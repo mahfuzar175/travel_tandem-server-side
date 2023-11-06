@@ -40,6 +40,8 @@ async function run() {
     app.post('/services', async(req, res) =>{
       const newProduct = req.body;
       console.log(newProduct);
+      const result = await serviceCollection.insertOne(newProduct);
+      res.send(result);
     })
 
     app.get('/services/:id', async(req, res) =>{
