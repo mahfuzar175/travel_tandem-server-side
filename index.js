@@ -31,6 +31,7 @@ async function run() {
 
     const serviceCollection = client.db("travelServer").collection("services")
     const serviceBookingCollection = client.db('travelServer').collection('booking');
+    const pendingBookingCollection = client.db('travelServer').collection('pending');
 
     app.get('/services', async(req, res) =>{
         const cursor = serviceCollection.find();
@@ -98,6 +99,22 @@ app.delete('/booking/:id', async(req, res) =>{
   const id = req.params.id;
   const query = {_id: new ObjectId(id)}
   const result = await serviceBookingCollection.deleteOne(query);
+  res.send(result);
+})
+
+
+// pending
+
+app.get('/pending', async(req, res) =>{
+  const cursor = pendingBookingCollection.find();
+  const result = await cursor.toArray();
+  res.send(result);
+})
+
+app.post('/pending', async(req, res) =>{
+  const newService = req.body;
+  console.log(newService);
+  const result = await pendingBookingCollection.insertOne(newService);
   res.send(result);
 })
 
