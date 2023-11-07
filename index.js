@@ -30,7 +30,7 @@ async function run() {
 
 
     const serviceCollection = client.db("travelServer").collection("services")
-    const serviceCartCollection = client.db('servicecCartDB').collection('cart');
+    const serviceBookingCollection = client.db('travelServer').collection('booking');
 
     app.get('/services', async(req, res) =>{
         const cursor = serviceCollection.find();
@@ -80,12 +80,21 @@ async function run() {
   })
 
 
-  // cart
-  app.get('/cart', async(req, res) =>{
-    const cursor = serviceCartCollection.find();
+  // booking
+  app.get('/booking', async(req, res) =>{
+    const cursor = serviceBookingCollection.find();
     const result = await cursor.toArray();
     res.send(result);
 })
+
+app.post('/booking', async(req, res) =>{
+  const newService = req.body;
+  console.log(newService);
+  const result = await serviceBookingCollection.insertOne(newService);
+  res.send(result);
+})
+
+
 
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
