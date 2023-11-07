@@ -94,6 +94,13 @@ app.post('/booking', async(req, res) =>{
   res.send(result);
 })
 
+app.delete('/booking/:id', async(req, res) =>{
+  const id = req.params.id;
+  const query = {_id: new ObjectId(id)}
+  const result = await serviceBookingCollection.deleteOne(query);
+  res.send(result);
+})
+
 
 
     // Send a ping to confirm a successful connection
