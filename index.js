@@ -18,6 +18,7 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+app.use(cookieParser());
 
 
 
@@ -32,29 +33,30 @@ const client = new MongoClient(uri, {
   }
 });
 
-
-// middleware
-const logger = async(req, res, next) =>{
-  console.log('called', req.host, req.originalUrl);
+// middlewares
+const logger = (req, res, next) => {
+  console.log('log: info',req.method, req.url);
   next();
 }
 
-// const verifyToken = async(req, res, next) => {
-//   const token = req.cookies?.token;
-//   console.log('value of token of middleware',token);
-//   if(!token){
-//     return res.status(401).send({message: 'not authorized'})
-//   }
-//   jwt.verify(token,process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-//     if(err){
-//       console.log(err);
-//       return res.status(401).send({message: 'unauthorized'})
-//     }
-//     console.log('value in the token', decoded);
-//     next()
-//   })
+const verifyToken = (req, res, next) =>{
+  const token = req?.cookies?.token;
+  console.log('token in the middleware', token);
+  // no token avilable
+  if(!token){
+    return res.status(401).send({message: 'unauthorized access'})
+  }
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) =>{
+    if(err){
+      return res.status(401).send({message: 'unauthorized access'})
+    }
+    req.user = decoded;
+    next();
+  })
+  
+}
 
-// }
+
 
 async function run() {
   try {
@@ -66,18 +68,26 @@ async function run() {
     const serviceBookingCollection = client.db('travelServer').collection('booking');
     const pendingBookingCollection = client.db('travelServer').collection('pending');
 
-      // auth related api
-      app.post('/jwt', logger, async(req, res) => {
-        const user = req.body;
-        console.log(user);
-        const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1h'})
-        res
-        .cookie('token', token, {
-          httpOnly: true,
-          secure: false,
-        })
-        .send({success: true});
+    // auth related api
+    app.post('/jwt', async(req,res) => {
+      const user = req.body;
+      console.log('user for token', user);
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1h'});
+
+      res.cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production" ? true: false,
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
       })
+      .send({success: true});
+    })
+
+    app.post('/logout', async(req, res) => {
+      const user = req.body;
+      console.log('logged out', user);
+      res.clearCookie('token', {maxAge: 0,secure: process.env.NODE_ENV === "production" ? true: false, sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",}).send({success: true})
+    })
+
 
 
     // servics related api
@@ -87,14 +97,14 @@ async function run() {
         res.send(result);
     })
 
-    app.post('/services', logger, async(req, res) =>{
+    app.post('/services',  logger, async(req, res) =>{
       const newProduct = req.body;
       console.log(newProduct);
       const result = await serviceCollection.insertOne(newProduct);
       res.send(result);
     })
 
-    app.get('/services/:id', logger, async(req, res) =>{
+    app.get('/services/:id', verifyToken, logger, async(req, res) =>{
         const id = req.params.id;
         const query = {_id: new ObjectId(id)}
         const result = await serviceCollection.findOne(query);
@@ -121,7 +131,7 @@ async function run() {
 
 
 
-    app.delete('/services/:id', logger, async(req, res) =>{
+    app.delete('/services/:id',  logger, async(req, res) =>{
       const id = req.params.id;
       const query = {_id: new ObjectId(id)}
       const result = await serviceCollection.deleteOne(query);
@@ -143,7 +153,7 @@ app.post('/booking', logger, async(req, res) =>{
   res.send(result);
 })
 
-app.delete('/booking/:id', logger, async(req, res) =>{
+app.delete('/booking/:id', logger,  async(req, res) =>{
   const id = req.params.id;
   const query = {_id: new ObjectId(id)}
   const result = await serviceBookingCollection.deleteOne(query);
@@ -152,7 +162,7 @@ app.delete('/booking/:id', logger, async(req, res) =>{
 
 
 // pending
-app.get('/pending',  logger, async(req, res) =>{
+app.get('/pending', logger, async(req, res) =>{
   const cursor = pendingBookingCollection.find();
   const result = await cursor.toArray();
   res.send(result);
